@@ -5,7 +5,7 @@ all: $(TARGET)
 
 $(TARGET): $(SRC)
 	mkdir -p bin 
-	gcc -o $(TARGET) $(SRC) -lSDL3 -lSDL3_image -lSDL3_ttf
+	gcc -Wall -Wextra -O3 -o $(TARGET) $(SRC) -lSDL3 -lSDL3_image -lSDL3_ttf
 
 clean:
 	rm -rf bin/
