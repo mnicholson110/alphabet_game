@@ -19,85 +19,96 @@ void process_input(GameState *state) {
         if (event.type == SDL_EVENT_QUIT) {
             state->run = false;
             return;
-        } else {
+        } else if (event.type == SDL_EVENT_KEY_DOWN) {
             switch (state->current_scene) {
             case START:
-                switch (event.type) {
-                case SDL_EVENT_KEY_DOWN:
-                    switch (event.key.scancode) {
-                    case SDL_SCANCODE_ESCAPE:
-                        state->run = false;
-                        return;
-                    case SDL_SCANCODE_SPACE:
-                        state->current_scene = GAME;
-                        return;
-                    default:
-                        return;
-                    }
+                switch (event.key.scancode) {
+                case SDL_SCANCODE_ESCAPE:
+                    state->run = false;
+                    return;
+                case SDL_SCANCODE_SPACE:
+                    state->current_scene = MENU;
+                    return;
+                default:
+                    return;
+                }
+            case MENU:
+                switch (event.key.scancode) {
+                case SDL_SCANCODE_ESCAPE:
+                    state->run = false;
+                    return;
+                case SDL_SCANCODE_SPACE:
+                    state->current_scene = GAME;
+                    set_variables(state);
+                    return;
+                case SDL_SCANCODE_UP:
+                case SDL_SCANCODE_W:
+                    if (state->current_selection > 0)
+                        state->current_selection--;
+                    return;
+                case SDL_SCANCODE_LEFT:
+                case SDL_SCANCODE_A:
+                    if (state->menu_selection_rects[state->current_selection].x > 445)
+                        state->menu_selection_rects[state->current_selection].x -= 100;
+                    return;
+                case SDL_SCANCODE_DOWN:
+                case SDL_SCANCODE_S:
+                    if (state->current_selection < 2)
+                        state->current_selection++;
+                    return;
+                case SDL_SCANCODE_RIGHT:
+                case SDL_SCANCODE_D:
+                    if (state->menu_selection_rects[state->current_selection].x < 645)
+                        state->menu_selection_rects[state->current_selection].x += 100;
+                    return;
+
                 default:
                     return;
                 }
             case GAME:
-                switch (event.type) {
-                case SDL_EVENT_KEY_DOWN:
-                    switch (event.key.scancode) {
-                    case SDL_SCANCODE_ESCAPE:
-                        state->current_scene = PAUSE;
-                        return;
-                    case SDL_SCANCODE_SPACE:
-                        state->current_scene = GAME;
-                        return;
-                    default:
-                        if (state->current_scene == GAME && event.key.scancode >= SDL_SCANCODE_A && event.key.scancode <= SDL_SCANCODE_Z) {
-                            char pressed_letter = 'A' + (event.key.scancode - SDL_SCANCODE_A);
-
-                            // TODO: this needs work.
-                            // need some sort of "highest current balloon" pointer to begin loop
-                            // ring-type behavior needed on state->balloons array
-                            for (int i = 0; i < state->max_balloons; i++) {
-                                Balloon *b = &state->balloons[i];
-                                if (b->active && b->letters[0] == pressed_letter) {
-                                    b->pop = true;
-                                    break;
-                                }
-                                if (i == state->max_balloons - 1) {
-                                    state->health--;
-                                };
+                switch (event.key.scancode) {
+                case SDL_SCANCODE_ESCAPE:
+                    state->current_scene = PAUSE;
+                    return;
+                case SDL_SCANCODE_SPACE:
+                    state->current_scene = GAME;
+                    return;
+                default:
+                    if (event.key.scancode >= SDL_SCANCODE_A && event.key.scancode <= SDL_SCANCODE_Z) {
+                        char pressed_letter = 'A' + (event.key.scancode - SDL_SCANCODE_A);
+                        // TODO: this needs work.
+                        // need some sort of "highest current balloon" pointer to begin loop
+                        // ring-type behavior needed on state->balloons array
+                        for (int i = 0; i < state->max_balloons; i++) {
+                            Balloon *b = &state->balloons[i];
+                            if (b->active && b->letters[0] == pressed_letter) {
+                                b->pop = true;
+                                return;
                             }
                         }
+                        state->health--;
                     }
-                default:
                     return;
                 }
             case PAUSE:
-                switch (event.type) {
-                case SDL_EVENT_KEY_DOWN:
-                    switch (event.key.scancode) {
-                    case SDL_SCANCODE_ESCAPE:
-                        state->run = false;
-                        return;
-                    case SDL_SCANCODE_SPACE:
-                        state->current_scene = GAME;
-                        return;
-                    default:
-                        return;
-                    }
+                switch (event.key.scancode) {
+                case SDL_SCANCODE_ESCAPE:
+                    state->run = false;
+                    return;
+                case SDL_SCANCODE_SPACE:
+                    state->current_scene = GAME;
+                    return;
                 default:
                     return;
                 }
             case GAMEOVER:
-                switch (event.type) {
-                case SDL_EVENT_KEY_DOWN:
-                    switch (event.key.scancode) {
-                    case SDL_SCANCODE_ESCAPE:
-                        state->run = false;
-                        return;
-                    case SDL_SCANCODE_SPACE:
-                        reset(state);
-                        return;
-                    default:
-                        return;
-                    }
+                switch (event.key.scancode) {
+                case SDL_SCANCODE_ESCAPE:
+                    state->run = false;
+                    return;
+                case SDL_SCANCODE_SPACE:
+                    reset(state);
+                    return;
                 default:
                     return;
                 }
@@ -107,11 +118,12 @@ void process_input(GameState *state) {
 }
 
 void update(GameState *state) {
-    if (state->health == 0) {
-        state->current_scene = GAMEOVER;
-        return;
-    }
+
     if (state->current_scene == GAME) {
+        if (state->health == 0) {
+            state->current_scene = GAMEOVER;
+            return;
+        }
         if (state->init_balloons) {
             init_balloons(state);
             state->init_balloons = false;
@@ -134,7 +146,7 @@ void update(GameState *state) {
                 state->score++;
             }
 
-            b->y += b->y_vel;
+            b->y += state->balloon_speed;
 
             if (b->y + BALLOON_HEIGHT / 2. < 0) {
                 b->active = false;
@@ -144,7 +156,9 @@ void update(GameState *state) {
                 SDL_DestroyTexture(b->letter_texture);
                 b->letter_texture = create_text_texture(state->renderer, state->font, b->letters);
                 b->pop = false;
-                state->score--;
+                if (state->score > 0) {
+                    state->score--;
+                }
             }
         }
     }
@@ -180,8 +194,8 @@ void render(GameState *state) {
             SDL_RenderTexture(state->renderer, b->letter_texture, NULL, &rect);
         }
 
-        SDL_FRect rect = {0, 0, 100, 25};
-        snprintf(state->score_text, 25, "Score: %d", state->score);
+        SDL_FRect rect = {0, 0, 100, 30};
+        snprintf(state->score_text, 11, "Score: %d", state->score);
         SDL_Texture *texture = create_text_texture(state->renderer, state->font, state->score_text);
         SDL_RenderTexture(state->renderer, texture, NULL, &rect);
         SDL_DestroyTexture(texture);
@@ -252,6 +266,40 @@ void render(GameState *state) {
         SDL_RenderTexture(state->renderer, state->gameover_textures[2], NULL, &rect);
         break;
     }
+    case MENU: {
+        int menu_width = 300;
+        int menu_height = 40;
+        SDL_FRect rect = {WIDTH / 2. - menu_width / 2. - 200,
+                          HEIGHT / 2. - menu_height / 2. - 80,
+                          menu_width,
+                          menu_height};
+
+        for (int i = 0; i < 3; i++) {
+            SDL_RenderTexture(state->renderer, state->menu_header_textures[i], NULL, &rect);
+
+            SDL_FRect selection_rect = {rect.x + 400,
+                                        rect.y,
+                                        40,
+                                        40};
+
+            for (int j = 0; j < 3; j++) {
+                int k = i * 3 + j;
+                SDL_RenderTexture(state->renderer, state->menu_selection_textures[k], NULL, &selection_rect);
+                selection_rect.x += 100;
+            }
+            rect.y += 80;
+            SDL_RenderRect(state->renderer, &state->menu_selection_rects[i]);
+        }
+
+        // current_selection = 0 => 200
+        // = 1 => 280
+        // = 2 => 360
+        SDL_FRect a_rect = {375, state->current_selection * 80 + 200, 45, 45};
+
+        SDL_RenderTexture(state->renderer, state->arrow, NULL, &a_rect);
+
+        break;
+    }
     }
 
     SDL_RenderPresent(state->renderer);
@@ -299,7 +347,7 @@ GameState init() {
         exit(EXIT_FAILURE);
     }
 
-    state.window = SDL_CreateWindow("Alphabet Balloons", WIDTH, HEIGHT, SDL_WINDOW_RESIZABLE);
+    state.window = SDL_CreateWindow("Alphabet Balloons", WIDTH, HEIGHT, SDL_WINDOW_FULLSCREEN | SDL_WINDOW_RESIZABLE);
     state.renderer = SDL_CreateRenderer(state.window, NULL);
     SDL_SetRenderLogicalPresentation(state.renderer, WIDTH, HEIGHT, SDL_LOGICAL_PRESENTATION_LETTERBOX);
 
@@ -314,17 +362,39 @@ GameState init() {
     state.gameover_textures[0] = create_text_texture(state.renderer, state.font, "Game Over!\0");
     state.gameover_textures[1] = create_text_texture(state.renderer, state.font, "Press space to try again!\0");
     state.gameover_textures[2] = create_text_texture(state.renderer, state.font, "Press escape to exit!\0");
+    state.menu_header_textures[0] = create_text_texture(state.renderer, state.font, "Max Health:\0");
+    state.menu_header_textures[1] = create_text_texture(state.renderer, state.font, "# of Balloons:\0");
+    state.menu_header_textures[2] = create_text_texture(state.renderer, state.font, "Balloon Speed:\0");
+
+    state.arrow = create_text_texture(state.renderer, state.font, "->\0");
+    // Max Health
+    state.menu_selection_textures[0] = create_text_texture(state.renderer, state.font, "5 \0");
+    state.menu_selection_textures[1] = create_text_texture(state.renderer, state.font, "3 \0");
+    state.menu_selection_textures[2] = create_text_texture(state.renderer, state.font, "1 \0");
+    // # of Balloons
+    state.menu_selection_textures[3] = create_text_texture(state.renderer, state.font, "5 \0");
+    state.menu_selection_textures[4] = create_text_texture(state.renderer, state.font, "7 \0");
+    state.menu_selection_textures[5] = create_text_texture(state.renderer, state.font, "10\0");
+    // Speed 1: 1., 1.5, 2.
+    state.menu_selection_textures[6] = create_text_texture(state.renderer, state.font, "1 \0");
+    state.menu_selection_textures[7] = create_text_texture(state.renderer, state.font, "2 \0");
+    state.menu_selection_textures[8] = create_text_texture(state.renderer, state.font, "3 \0");
+
+    state.menu_selection_rects[0] = (SDL_FRect){445, 195, 40, 40};
+    state.menu_selection_rects[1] = (SDL_FRect){445, 275, 40, 40};
+    state.menu_selection_rects[2] = (SDL_FRect){445, 355, 40, 40};
 
     state.run = true;
     state.last_frame_time = SDL_GetTicksNS();
     state.score = 0;
     state.current_scene = START;
-    // TODO: make health selectable on main screen;
-    state.health = 5;
-    state.max_health = 5;
     state.init_balloons = true;
-    state.max_balloons = 10;
-    state.balloon_speed = -1.7f;
+    state.current_selection = 0;
+
+    state.max_health = 5;
+    state.health = state.max_health;
+    state.max_balloons = 5;
+    state.balloon_speed = -1.f;
 
     return state;
 }
@@ -337,9 +407,6 @@ void cleanup(GameState *state) {
         free(state->balloons);
     }
     TTF_CloseFont(state->font);
-    SDL_DestroyTexture(state->background);
-    SDL_DestroyTexture(state->heart);
-    SDL_DestroyTexture(state->empty_heart);
     SDL_DestroyRenderer(state->renderer);
     SDL_DestroyWindow(state->window);
     TTF_Quit();
@@ -356,7 +423,6 @@ void reset(GameState *state) {
         Balloon *b = &state->balloons[i];
         b->x = rand() % (WIDTH - BALLOON_WIDTH);
         b->y = HEIGHT + (i * y_gap);
-        b->x_vel = 0;
         b->letters[0] = 'A' + (rand() % 26);
         b->letters[1] = '\0';
         b->letter_texture = create_text_texture(state->renderer, state->font, b->letters);
@@ -367,13 +433,12 @@ void reset(GameState *state) {
     state->run = true;
     state->last_frame_time = SDL_GetTicksNS();
     state->score = 0;
-    state->current_scene = GAME;
-    state->health = state->max_health;
+    state->current_scene = MENU;
 }
 
 void draw_health(GameState *state) {
     for (int i = 1; i <= state->max_health; i++) {
-        SDL_FRect rect = {WIDTH - 48 * i, 0, 48, 48};
+        SDL_FRect rect = {WIDTH - 30 * i, 0, 30, 30};
         if (i <= state->health) {
             SDL_RenderTexture(state->renderer, state->heart, NULL, &rect);
         } else {
@@ -400,12 +465,39 @@ void init_balloons(GameState *state) {
         Balloon *b = &state->balloons[i];
         b->x = rand() % (WIDTH - BALLOON_WIDTH);
         b->y = HEIGHT + (i * y_gap);
-        b->x_vel = 0;
-        b->y_vel = state->balloon_speed;
         b->letters[0] = 'A' + (rand() % 26);
         b->letters[1] = '\0';
         b->letter_texture = create_text_texture(state->renderer, state->font, b->letters);
         b->active = false;
         b->pop = false;
+    }
+}
+
+void set_variables(GameState *state) {
+    if (state->menu_selection_rects[0].x == 445.) {
+        state->max_health = 5;
+        state->health = state->max_health;
+    } else if (state->menu_selection_rects[0].x == 545.) {
+        state->max_health = 3;
+        state->health = state->max_health;
+    } else {
+        state->max_health = 1;
+        state->health = state->max_health;
+    }
+
+    if (state->menu_selection_rects[1].x == 445.) {
+        state->max_balloons = 5;
+    } else if (state->menu_selection_rects[1].x == 545.) {
+        state->max_balloons = 7;
+    } else {
+        state->max_balloons = 10;
+    }
+
+    if (state->menu_selection_rects[2].x == 445.) {
+        state->balloon_speed = -0.7f;
+    } else if (state->menu_selection_rects[2].x == 545.) {
+        state->balloon_speed = -1.4f;
+    } else {
+        state->balloon_speed = -2.1f;
     }
 }
